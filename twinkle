@@ -1,0 +1,4 @@
+#!/bin/sh
+# Change to whatever directory you have checked out twinkle
+cd /opt/twinkle
+java -jar build/libs/twinkle.jar
