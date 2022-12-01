@@ -1,0 +1,22 @@
+[versions]
+
+kotlin = "1.7.22"
+
+rxkotlin = "2.4.0"
+retrofit = "2.9.0"
+retrofit-javarx2 = "1.0.0"
+
+versions = "0.44.0"
+
+
+[plugins]
+kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+versions = { id = "com.github.ben-manes.versions", version.ref = "versions" }
+
+
+[libraries]
+kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib" }
+rxkotlin = { module = "io.reactivex.rxjava2:rxkotlin", version.ref = "rxkotlin" }
+retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+retrofit-moshi = { module = "com.squareup.retrofit2:converter-moshi", version.ref = "retrofit" }
+retrofit-rxjava2 = { module = "com.jakewharton.retrofit:retrofit2-rxjava2-adapter", version.ref = "retrofit-javarx2" }
