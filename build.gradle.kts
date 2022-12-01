@@ -2,7 +2,8 @@ import org.gradle.kotlin.dsl.*
 
 plugins {
     application
-    kotlin("jvm") version "1.4.10"
+    alias(libs.plugins.kotlin)
+    alias(libs.plugins.versions)
 }
 
 repositories {
@@ -13,15 +14,12 @@ application {
     mainClass.set("se.yverling.twinkle.TwinkleKt")
 }
 
-val retrofitVersion by extra("2.8.1")
-
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-stdlib")
-
-    implementation("io.reactivex.rxjava2:rxkotlin:2.2.0")
-    implementation("com.squareup.retrofit2:retrofit:$retrofitVersion")
-    implementation("com.squareup.retrofit2:converter-moshi:$retrofitVersion")
-    implementation("com.jakewharton.retrofit:retrofit2-rxjava2-adapter:1.0.0")
+    implementation(libs.kotlin.stdlib)
+    implementation(libs.rxkotlin)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.moshi)
+    implementation(libs.retrofit.rxjava2)
 }
 
 tasks.withType<Jar> {
@@ -36,4 +34,17 @@ tasks.withType<Jar> {
     from({
         configurations.runtimeClasspath.get().filter { it.name.endsWith("jar") }.map { zipTree(it) }
     })
+}
+
+tasks.withType<com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask> {
+    rejectVersionIf {
+        isNonStable(candidate.version)
+    }
+}
+
+fun isNonStable(version: String): Boolean {
+    val stableKeyword = listOf("RELEASE", "FINAL", "GA").any { version.toUpperCase().contains(it) }
+    val regex = "^[0-9,.v-]+(-r)?$".toRegex()
+    val isStable = stableKeyword || regex.matches(version)
+    return isStable.not()
 }
