@@ -1,6 +1,6 @@
 [versions]
 
-kotlin = "1.8.10"
+kotlin = "1.8.21"
 
 rxkotlin = "2.4.0"
 retrofit = "2.9.0"
