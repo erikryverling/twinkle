@@ -1,12 +1,12 @@
 [versions]
 
-kotlin = "1.8.21"
+kotlin = "1.8.22"
 
 rxkotlin = "2.4.0"
 retrofit = "2.9.0"
 retrofit-javarx2 = "1.0.0"
 
-versions = "0.46.0"
+versions = "0.47.0"
 
 
 [plugins]
