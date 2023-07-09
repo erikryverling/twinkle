@@ -2,7 +2,8 @@
 
 kotlin = "1.8.22"
 
-rxkotlin = "2.4.0"
+kotlinx-coroutines-core = "1.7.2"
+
 retrofit = "2.9.0"
 retrofit-javarx2 = "1.0.0"
 
@@ -16,7 +17,6 @@ versions = { id = "com.github.ben-manes.versions", version.ref = "versions" }
 
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib" }
-rxkotlin = { module = "io.reactivex.rxjava2:rxkotlin", version.ref = "rxkotlin" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines-core" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 retrofit-moshi = { module = "com.squareup.retrofit2:converter-moshi", version.ref = "retrofit" }
-retrofit-rxjava2 = { module = "com.jakewharton.retrofit:retrofit2-rxjava2-adapter", version.ref = "retrofit-javarx2" }

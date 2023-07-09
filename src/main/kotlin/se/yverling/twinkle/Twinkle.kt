@@ -1,8 +1,15 @@
 package se.yverling.twinkle
 
-import com.jakewharton.retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
-import io.reactivex.Single
-import io.reactivex.rxkotlin.subscribeBy
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapConcat
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.runBlocking
 import okhttp3.Authenticator
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -21,7 +28,7 @@ import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
 import kotlin.system.exitProcess
 
-fun main() {
+fun main() = runBlocking {
     Twinkle.addCurrentPlayingUriToPlaylist()
 }
 
@@ -34,7 +41,7 @@ object Twinkle {
     private const val CONF_DELIMITER = "="
     private const val ACCESS_TOKEN_KEY = "access_token"
     private const val REFRESH_TOKEN_KEY = "refresh_token"
-    private const val CLIENT_ID_KEY = "client_id"
+    private const val CLIENT_ID_SECRET_HASH_KEY = "client_id_secret_hash"
     private const val PLAYLIST_ID_KEY = "playlist_id"
 
     private const val AUDIO_PATH = "./audio"
@@ -51,7 +58,7 @@ object Twinkle {
 
     private lateinit var accessToken: String
     private lateinit var refreshToken: String
-    private lateinit var clientId: String
+    private lateinit var clientIdSecretHash: String
     private lateinit var playlistId: String
 
     init {
@@ -61,7 +68,7 @@ object Twinkle {
         when {
             !::accessToken.isInitialized -> exitWithMessage(ACCESS_TOKEN_KEY)
             !::refreshToken.isInitialized -> exitWithMessage(REFRESH_TOKEN_KEY)
-            !::clientId.isInitialized -> exitWithMessage(CLIENT_ID_KEY)
+            !::clientIdSecretHash.isInitialized -> exitWithMessage(CLIENT_ID_SECRET_HASH_KEY)
             !::playlistId.isInitialized -> exitWithMessage(PLAYLIST_ID_KEY)
         }
     }
@@ -73,31 +80,44 @@ object Twinkle {
     }
 
 
-    fun addCurrentPlayingUriToPlaylist() {
+    @OptIn(ExperimentalCoroutinesApi::class)
+    suspend fun addCurrentPlayingUriToPlaylist() {
         val playerService = buildService<PlayerService>(API_BASE_URL)
         val playlistService = buildService<PlaylistService>(API_BASE_URL)
 
-        playerService.getCurrentlyPlaying()
-            .flatMap { playlistService.addUriToPlaylist(playlistId, it.item.uri) }
-            .subscribeBy(
-                onSuccess = {
-                    playSuccessSound()
-                    println("Currently playing added to playlist $playlistId successfully")
-                    exitProcess(0)
-                },
-                onError = {
-                    playFailSound()
-                    println(it.stackTraceToString())
-                    exitProcess(-1)
+        flow {
+            emit(playerService.getCurrentlyPlaying())
+        }
+            .flatMapConcat {
+                flow {
+                    emit(playlistService.addUriToPlaylist(playlistId, it.item.uri))
                 }
-            )
+            }
+            .flowOn(Dispatchers.IO)
+            .catch {
+                playFailSound()
+                println(it.stackTraceToString())
+                exitProcess(-1)
+            }
+            .collect {
+                playSuccessSound()
+                println("Currently playing added to playlist $playlistId successfully")
+                exitProcess(0)
+            }
     }
 
-    fun refreshTokens(): Single<TokenResponse> {
-        return buildService<TokenService>(OAUTH_BASE_URL)
-            .refreshTokens(REFRESH_TOKEN_GRANT_TYPE, refreshToken, clientId)
-            .doOnSuccess {
-                writeConfigurationFile(it.access_token, it.refresh_token)
+    fun refreshTokens(): Flow<TokenResponse> {
+        val headerMap = mutableMapOf<String, String>()
+        headerMap["Authorization"] = "Basic $clientIdSecretHash"
+
+        val refreshService = buildService<TokenService>(OAUTH_BASE_URL)
+
+        return flow {
+            emit(refreshService.refreshTokens(REFRESH_TOKEN_GRANT_TYPE, refreshToken, headerMap))
+        }
+            .flowOn(Dispatchers.IO)
+            .onEach {
+                writeConfigurationFile(it.access_token)
                 readConfigValuesFromFile()
             }
     }
@@ -127,18 +147,17 @@ object Twinkle {
             .client(client)
             .baseUrl(baseUrl)
             .addConverterFactory(MoshiConverterFactory.create())
-            .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
             .build()
             .create(T::class.java)
     }
-
 
     private fun playSuccessSound() = playSound("success.wav")
     private fun playFailSound() = playSound("fail.wav")
 
     private fun playSound(fileName: String) {
         val clip = AudioSystem.getClip()
-        val inputStream: AudioInputStream = AudioSystem.getAudioInputStream(File("$AUDIO_PATH/$fileName"))
+        val inputStream: AudioInputStream =
+            AudioSystem.getAudioInputStream(File("$AUDIO_PATH/$fileName"))
         clip.open(inputStream)
         clip.start()
     }
@@ -152,18 +171,18 @@ object Twinkle {
                 when (key) {
                     ACCESS_TOKEN_KEY -> accessToken = value
                     REFRESH_TOKEN_KEY -> refreshToken = value
-                    CLIENT_ID_KEY -> clientId = value
+                    CLIENT_ID_SECRET_HASH_KEY -> clientIdSecretHash = value
                     PLAYLIST_ID_KEY -> playlistId = value
                 }
             }
         }
     }
 
-    private fun writeConfigurationFile(accessToken: String, refreshToken: String) {
+    private fun writeConfigurationFile(accessToken: String) {
         File("$homeFolder/$CONF_FILE_NAME").printWriter().use {
             it.println("$ACCESS_TOKEN_KEY$CONF_DELIMITER$accessToken")
             it.println("$REFRESH_TOKEN_KEY$CONF_DELIMITER$refreshToken")
-            it.println("$CLIENT_ID_KEY$CONF_DELIMITER$clientId")
+            it.println("$CLIENT_ID_SECRET_HASH_KEY$CONF_DELIMITER$clientIdSecretHash")
             it.println("$PLAYLIST_ID_KEY$CONF_DELIMITER$playlistId")
         }
     }
@@ -171,12 +190,20 @@ object Twinkle {
 
 class AccessTokenAuthenticator : Authenticator {
     override fun authenticate(route: Route?, response: Response): Request? {
-
         // Refresh access (and refresh) token if it has expired
         if (response.code() == 401) {
             println("Access token expired. Refreshing tokens...")
 
-            val updatedToken = Twinkle.refreshTokens().blockingGet().access_token
+            var updatedToken: String
+
+            runBlocking {
+                updatedToken = Twinkle.refreshTokens()
+                    .catch {
+                        println(it.stackTraceToString())
+                        exitProcess(-1)
+                    }
+                    .first().access_token
+            }
 
             return response.request()
                 .newBuilder()

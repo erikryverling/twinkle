@@ -16,16 +16,17 @@ application {
 
 dependencies {
     implementation(libs.kotlin.stdlib)
-    implementation(libs.rxkotlin)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.retrofit)
     implementation(libs.retrofit.moshi)
-    implementation(libs.retrofit.rxjava2)
 }
 
 tasks.withType<Jar> {
     manifest {
         attributes["Main-Class"] = "se.yverling.twinkle.TwinkleKt"
     }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     // To add all of the dependencies otherwise a "NoClassDefFoundError" error
     from(sourceSets.main.get().output)

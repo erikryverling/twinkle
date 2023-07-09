@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="313" height="313" src="https://image.freepik.com/free-vector/gold-star-shape-isolated-white-background-golden-star-icon-gold-star-logo_32511-49.jpg">
+  <img src="https://github.com/erikryverling/twinkle/assets/1917608/de43c6e1-d77b-4449-a01a-87cde46beb31">
 </p>
 
 
@@ -13,8 +13,8 @@ _Twinkle let's you save the current playing Spotify song to a playlist with a si
 ### ~/.twinkle 
 After installation you have to fill out the `~/.twinkle` configuration file.
 
-#### Access token, refresh token and client ID
-These value can be aquired by heading to the [Spotify Web API Authorization guide](https://developer.spotify.com/documentation/general/guides/authorization-guide/), registering an app and following the PKCE flow using the scopes `playlist-modify-private` and `user-read-playback-state`. The refresh token entered in `~/.twinkle` needs to be non-expired as Twinkle will use to to get new access- and refresh tokens automaticly.
+#### Access token, refresh token and client ID + client secret hash
+These values can be aquired by heading to [Getting started with Web API](https://developer.spotify.com/documentation/web-api/tutorials/getting-started), registering an app and following the _Authorization Code Flow_ guide. The refresh token entered in `~/.twinkle` needs to be non-expiring as Twinkle will use it to get new access tokens automaticly.
 
 #### Playlist ID
 This is the Spotify ID of the playlist you want to add your saved songs to. You can find it by selecting a playlist and then _Share -> Copy Spotify URI_ and finally extracting the ID as the last part of the URI. 
