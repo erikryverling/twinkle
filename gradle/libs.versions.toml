@@ -1,13 +1,13 @@
 [versions]
 
-kotlin = "1.9.21"
+kotlin = "1.9.22"
 
 kotlinx-coroutines-core = "1.7.3"
 
 retrofit = "2.9.0"
 retrofit-javarx2 = "1.0.0"
 
-versions = "0.50.0"
+versions = "0.51.0"
 
 
 [plugins]
