@@ -1,12 +1,11 @@
 [versions]
 
-kotlin = "1.9.22"
+# Plugins
+kotlin = "1.9.23"
 
-kotlinx-coroutines-core = "1.7.3"
-
-retrofit = "2.9.0"
-retrofit-javarx2 = "1.0.0"
-
+# Libraries
+kotlinx-coroutines-core = "1.8.0"
+retrofit = "2.11.0"
 versions = "0.51.0"
 
 
