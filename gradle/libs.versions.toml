@@ -1,21 +1,24 @@
 [versions]
 
+# Global
+kotlin = "2.0.0"
+
 # Plugins
-kotlin = "1.9.23"
+versions-plugin = "0.51.0"
 
 # Libraries
-kotlinx-coroutines-core = "1.8.0"
+kotlinx-coroutines-core = "1.8.1"
 retrofit = "2.11.0"
-versions = "0.51.0"
 
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-versions = { id = "com.github.ben-manes.versions", version.ref = "versions" }
+versions = { id = "com.github.ben-manes.versions", version.ref = "versions-plugin" }
 
 
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines-core" }
+
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 retrofit-moshi = { module = "com.squareup.retrofit2:converter-moshi", version.ref = "retrofit" }
