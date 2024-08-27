@@ -16,7 +16,6 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.Route
 import retrofit2.Retrofit
-import retrofit2.converter.moshi.MoshiConverterFactory
 import se.yverling.twinkle.Twinkle.OAUTH_HEADER_NAME
 import se.yverling.twinkle.network.PlayerService
 import se.yverling.twinkle.network.PlaylistService
@@ -26,6 +25,9 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlin.system.exitProcess
 
 fun main() = runBlocking {
@@ -143,10 +145,14 @@ object Twinkle {
     }
 
     private inline fun <reified T> buildService(baseUrl: String): T {
+        val jsonConfiguration = Json { ignoreUnknownKeys = true }
+        val mediaType = MediaType.get("application/json")
+        val json = jsonConfiguration.asConverterFactory(mediaType)
+
         return Retrofit.Builder()
             .client(client)
             .baseUrl(baseUrl)
-            .addConverterFactory(MoshiConverterFactory.create())
+            .addConverterFactory(json)
             .build()
             .create(T::class.java)
     }

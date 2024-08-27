@@ -4,6 +4,7 @@ plugins {
     application
     alias(libs.plugins.kotlin)
     alias(libs.plugins.versions)
+    alias(libs.plugins.serialization)
 }
 
 repositories {
@@ -17,8 +18,8 @@ application {
 dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.moshi)
+    implementation(libs.bundles.retrofit)
+    implementation(libs.kotlinx.serialization)
 }
 
 tasks.withType<Jar> {
