@@ -1,14 +1,14 @@
 [versions]
 
 # Global
-kotlin = "2.1.0"
+kotlin = "2.1.10"
 
 # Plugins
-versions-plugin = "0.51.0"
+versions-plugin = "0.52.0"
 
 # Libraries
-kotlinx-coroutines-core = "1.9.0"
-kotlinx-serialization = "1.7.3"
+kotlinx-coroutines-core = "1.10.1"
+kotlinx-serialization = "1.8.0"
 
 retrofit = "2.11.0"
 
