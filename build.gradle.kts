@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin)
     alias(libs.plugins.versions)
     alias(libs.plugins.serialization)
+    alias(libs.plugins.ktlint)
 }
 
 repositories {
@@ -18,6 +19,10 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.bundles.retrofit)
     implementation(libs.kotlinx.serialization)
+}
+
+ktlint {
+    ignoreFailures = true
 }
 
 tasks.withType<Jar> {
