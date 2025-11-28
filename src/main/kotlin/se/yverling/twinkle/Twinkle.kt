@@ -27,6 +27,7 @@ import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlin.system.exitProcess
 
@@ -131,7 +132,7 @@ object Twinkle {
                 var request = chain.request()
 
                 // Add OAUTH header to all authenticated requests
-                if (chain.request().url().host() != OAUTH_HOST) {
+                if (chain.request().url.host != OAUTH_HOST) {
                     request = chain.request().newBuilder()
                         .addHeader(OAUTH_HEADER_NAME, "Bearer $accessToken")
                         .build()
@@ -146,7 +147,7 @@ object Twinkle {
 
     private inline fun <reified T> buildService(baseUrl: String): T {
         val jsonConfiguration = Json { ignoreUnknownKeys = true }
-        val mediaType = MediaType.get("application/json")
+        val mediaType = "application/json".toMediaType()
         val json = jsonConfiguration.asConverterFactory(mediaType)
 
         return Retrofit.Builder()
@@ -197,7 +198,7 @@ object Twinkle {
 class AccessTokenAuthenticator : Authenticator {
     override fun authenticate(route: Route?, response: Response): Request? {
         // Refresh access (and refresh) token if it has expired
-        if (response.code() == 401) {
+        if (response.code == 401) {
             println("Access token expired. Refreshing tokens...")
 
             var updatedToken: String
@@ -211,7 +212,7 @@ class AccessTokenAuthenticator : Authenticator {
                     .first().access_token
             }
 
-            return response.request()
+            return response.request
                 .newBuilder()
                 .removeHeader(OAUTH_HEADER_NAME)
                 .addHeader(OAUTH_HEADER_NAME, "Bearer $updatedToken")
