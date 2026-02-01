@@ -1,5 +1,3 @@
-import java.util.Locale
-
 plugins {
     application
     alias(libs.plugins.kotlin)
@@ -18,7 +16,7 @@ application {
 dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.bundles.retrofit)
+    implementation(libs.bundles.ktor)
     implementation(libs.kotlinx.serialization)
 }
 

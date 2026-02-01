@@ -1,5 +1,14 @@
 package se.yverling.twinkle
 
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpSend
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.plugin
+import io.ktor.http.HttpStatusCode
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -10,25 +19,14 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
-import okhttp3.Authenticator
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
-import okhttp3.Route
-import retrofit2.Retrofit
-import se.yverling.twinkle.Twinkle.OAUTH_HEADER_NAME
+import kotlinx.serialization.json.Json
 import se.yverling.twinkle.network.PlayerService
 import se.yverling.twinkle.network.PlaylistService
 import se.yverling.twinkle.network.TokenResponse
 import se.yverling.twinkle.network.TokenService
 import java.io.File
-import java.util.concurrent.TimeUnit
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
-import kotlinx.serialization.json.Json
-import okhttp3.MediaType
-import okhttp3.MediaType.Companion.toMediaType
-import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlin.system.exitProcess
 
 fun main() = runBlocking {
@@ -36,9 +34,7 @@ fun main() = runBlocking {
 }
 
 object Twinkle {
-    const val OAUTH_HEADER_NAME = "Authorization"
-    private const val OAUTH_HOST = "accounts.spotify.com"
-    private const val OAUTH_BASE_URL = "https://$OAUTH_HOST"
+    private const val OAUTH_BASE_URL = "https://accounts.spotify.com"
 
     private const val CONF_FILE_NAME = ".twinkle"
     private const val CONF_DELIMITER = "="
@@ -53,11 +49,12 @@ object Twinkle {
 
     private const val REFRESH_TOKEN_GRANT_TYPE = "refresh_token"
 
-    private const val HTTP_CLIENT_TIMEOUT_IN_SEC = 15L
+    private const val HTTP_CLIENT_TIMEOUT_IN_MS = 15000L
 
     private val homeFolder = System.getProperty("user.home")
 
-    private var client: OkHttpClient
+    private var apiClient: HttpClient
+    private var oauthClient: HttpClient
 
     private lateinit var accessToken: String
     private lateinit var refreshToken: String
@@ -65,7 +62,6 @@ object Twinkle {
     private lateinit var playlistId: String
 
     init {
-        client = createHttpClient()
         readConfigValuesFromFile()
 
         when {
@@ -74,6 +70,9 @@ object Twinkle {
             !::clientIdSecretHash.isInitialized -> exitWithMessage(CLIENT_ID_SECRET_HASH_KEY)
             !::playlistId.isInitialized -> exitWithMessage(PLAYLIST_ID_KEY)
         }
+
+        apiClient = createApiClient()
+        oauthClient = createOAuthClient()
     }
 
     private fun exitWithMessage(fieldName: String) {
@@ -85,15 +84,12 @@ object Twinkle {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     suspend fun addCurrentPlayingUriToPlaylist() {
-        val playerService = buildService<PlayerService>(API_BASE_URL)
-        val playlistService = buildService<PlaylistService>(API_BASE_URL)
-
         flow {
-            emit(playerService.getCurrentlyPlaying())
+            emit(PlayerService.getCurrentlyPlaying(apiClient))
         }
             .flatMapConcat {
                 flow {
-                    emit(playlistService.addUriToPlaylist(playlistId, it.item.uri))
+                    emit(PlaylistService.addUriToPlaylist(apiClient, playlistId, it.item.uri))
                 }
             }
             .flowOn(Dispatchers.IO)
@@ -113,10 +109,13 @@ object Twinkle {
         val headerMap = mutableMapOf<String, String>()
         headerMap["Authorization"] = "Basic $clientIdSecretHash"
 
-        val refreshService = buildService<TokenService>(OAUTH_BASE_URL)
-
         return flow {
-            emit(refreshService.refreshTokens(REFRESH_TOKEN_GRANT_TYPE, refreshToken, headerMap))
+            emit(TokenService.refreshTokens(
+                client = oauthClient,
+                grantType = REFRESH_TOKEN_GRANT_TYPE,
+                refreshToken = refreshToken,
+                headers = headerMap
+            ))
         }
             .flowOn(Dispatchers.IO)
             .onEach {
@@ -125,37 +124,67 @@ object Twinkle {
             }
     }
 
-    private fun createHttpClient(): OkHttpClient {
-        return OkHttpClient.Builder()
-            .connectTimeout(HTTP_CLIENT_TIMEOUT_IN_SEC, TimeUnit.SECONDS)
-            .addInterceptor { chain ->
-                var request = chain.request()
-
-                // Add OAUTH header to all authenticated requests
-                if (chain.request().url.host != OAUTH_HOST) {
-                    request = chain.request().newBuilder()
-                        .addHeader(OAUTH_HEADER_NAME, "Bearer $accessToken")
-                        .build()
+    private fun refreshTokensSync(): String {
+        return runBlocking {
+            refreshTokens()
+                .catch {
+                    println(it.stackTraceToString())
+                    exitProcess(-1)
                 }
-
-                chain.proceed(request)
-            }
-            .authenticator(AccessTokenAuthenticator())
-            .readTimeout(HTTP_CLIENT_TIMEOUT_IN_SEC, TimeUnit.SECONDS)
-            .build()
+                .first().access_token
+        }
     }
 
-    private inline fun <reified T> buildService(baseUrl: String): T {
-        val jsonConfiguration = Json { ignoreUnknownKeys = true }
-        val mediaType = "application/json".toMediaType()
-        val json = jsonConfiguration.asConverterFactory(mediaType)
+    private fun createApiClient(): HttpClient {
+        return HttpClient(OkHttp) {
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true })
+            }
 
-        return Retrofit.Builder()
-            .client(client)
-            .baseUrl(baseUrl)
-            .addConverterFactory(json)
-            .build()
-            .create(T::class.java)
+            install(HttpTimeout) {
+                requestTimeoutMillis = HTTP_CLIENT_TIMEOUT_IN_MS
+                connectTimeoutMillis = HTTP_CLIENT_TIMEOUT_IN_MS
+                socketTimeoutMillis = HTTP_CLIENT_TIMEOUT_IN_MS
+            }
+
+            defaultRequest { url(API_BASE_URL) }
+
+        }.also { client ->
+            client.plugin(HttpSend).intercept { request ->
+                // Add Bearer token to all requests
+                request.headers.append("Authorization", "Bearer $accessToken")
+
+                val originalCall = execute(request)
+
+                if (originalCall.response.status == HttpStatusCode.Unauthorized) {
+                    println("Access token expired. Refreshing tokens...")
+                    val newToken = refreshTokensSync()
+
+                    // Retry with new token
+                    request.headers.remove("Authorization")
+                    request.headers.append("Authorization", "Bearer $newToken")
+                    execute(request)
+                } else {
+                    originalCall
+                }
+            }
+        }
+    }
+
+    private fun createOAuthClient(): HttpClient {
+        return HttpClient(OkHttp) {
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true })
+            }
+
+            install(HttpTimeout) {
+                requestTimeoutMillis = HTTP_CLIENT_TIMEOUT_IN_MS
+                connectTimeoutMillis = HTTP_CLIENT_TIMEOUT_IN_MS
+                socketTimeoutMillis = HTTP_CLIENT_TIMEOUT_IN_MS
+            }
+
+            defaultRequest { url(OAUTH_BASE_URL) }
+        }
     }
 
     private fun playSuccessSound() = playSound("success.wav")
@@ -192,32 +221,5 @@ object Twinkle {
             it.println("$CLIENT_ID_SECRET_HASH_KEY$CONF_DELIMITER$clientIdSecretHash")
             it.println("$PLAYLIST_ID_KEY$CONF_DELIMITER$playlistId")
         }
-    }
-}
-
-class AccessTokenAuthenticator : Authenticator {
-    override fun authenticate(route: Route?, response: Response): Request? {
-        // Refresh access (and refresh) token if it has expired
-        if (response.code == 401) {
-            println("Access token expired. Refreshing tokens...")
-
-            var updatedToken: String
-
-            runBlocking {
-                updatedToken = Twinkle.refreshTokens()
-                    .catch {
-                        println(it.stackTraceToString())
-                        exitProcess(-1)
-                    }
-                    .first().access_token
-            }
-
-            return response.request
-                .newBuilder()
-                .removeHeader(OAUTH_HEADER_NAME)
-                .addHeader(OAUTH_HEADER_NAME, "Bearer $updatedToken")
-                .build()
-        }
-        return null
     }
 }
