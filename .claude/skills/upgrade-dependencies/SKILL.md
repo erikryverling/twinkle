@@ -3,7 +3,7 @@ name: upgrade-dependencies
 description: Upgrades the project dependencies
 ---
 
-- Use https://gradle.org to search for Gradle updates
+- Use https://gradle.org to search for Gradle updates, including Gradle plugins
 - Use https://mvnrepository.com to search for dependency updates
 - Analyze libs.versions.toml and gradle-wrapper.properties
 - Upgrade all dependencies in libs.versions.toml and gradle-wrapper.properties
