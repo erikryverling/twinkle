@@ -1,7 +1,7 @@
 [versions]
 
 # Common
-kotlin = "2.3.21"
+kotlin = "2.4.20"
 
 # Plugins
 ktlint-plugin = "14.2.0"
@@ -10,7 +10,7 @@ ktlint-plugin = "14.2.0"
 kotlinx-coroutines-core = "1.11.0"
 kotlinx-serialization = "1.11.0"
 
-ktor = "3.5.0"
+ktor = "3.6.0"
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
